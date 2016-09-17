@@ -10,13 +10,13 @@ const processFn = (fn, opts) => function () {
 	}
 
 	return new P((resolve, reject) => {
-		args.push((err, ...results) => {
+		args.push((err, result, ...results) => {
 			if (err) {
 				reject(err);
 			} else if (opts.multiArgs) {
-				resolve(results);
+				resolve([result, ...results]);
 			} else {
-				resolve(results[0]);
+				resolve(result);
 			}
 		});
 
