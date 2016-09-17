@@ -10,15 +10,13 @@ const processFn = (fn, opts) => function () {
 	}
 
 	return new P((resolve, reject) => {
-		args.push(function (err, result) {
+		args.push((err, ...results) => {
 			if (err) {
 				reject(err);
 			} else if (opts.multiArgs) {
-				const [, ...results] = arguments;
-
 				resolve(results);
 			} else {
-				resolve(result);
+				resolve(results[0]);
 			}
 		});
 
@@ -38,19 +36,8 @@ module.exports = (obj, opts) => {
 	};
 
 	const cache = new Map();
-	const main = Symbol('main');
 
-	return new Proxy(obj, {
-		apply: (target, thisArg, argumentsList) => {
-			let cached = cache.get(main);
-
-			if (!cached) {
-				cached = opts.excludeMain ? target : processFn(target, opts);
-				cache.set(main, cached);
-			}
-
-			return cached.apply(thisArg, argumentsList);
-		},
+	const handler = {
 		get: (target, key) => {
 			let cached = cache.get(key);
 
@@ -63,5 +50,22 @@ module.exports = (obj, opts) => {
 
 			return cached;
 		}
-	});
+	};
+
+	if (!opts.excludeMain) {
+		const main = Symbol('main');
+
+		handler.apply = (target, thisArg, argumentsList) => {
+			let cached = cache.get(main);
+
+			if (!cached) {
+				cached = processFn(target, opts);
+				cache.set(main, cached);
+			}
+
+			return cached.apply(thisArg, argumentsList);
+		};
+	}
+
+	return new Proxy(obj, handler);
 };
